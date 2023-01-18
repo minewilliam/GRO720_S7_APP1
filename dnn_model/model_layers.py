@@ -3,11 +3,9 @@ import numpy as np
 
 
 class Layer(LayerBase):
-    def __init__(self, input_size, layer_size):
-        self._layer_size = layer_size
-        self._parameters = {"weights", np.zeros([layer_size, input_size]),
-                            "biases", np.zeros(layer_size)}
+    def __init__(self):
         self._buffers = {}
+        self._parameters = {}
         LayerBase.__init__(self)
 
     def get_parameters(self):
@@ -24,22 +22,50 @@ class Layer(LayerBase):
 
 
 class FullyConnectedLayer(Layer):
+    def __init__(self, input_size, layer_size):
+        Layer.__init__(self)
+        self._layer_size = layer_size
+        self._parameters = {"weights": np.zeros([layer_size, input_size]),
+                            "biases": np.zeros(layer_size)}
+
     def forward(self, x):
-        w = self._parameters["weights"]
-        b = self._parameters["biases"]
-        return np.matmul(x, w.transpose()) + b, x
+        weights = self._parameters["weights"]
+        biases = self._parameters["biases"]
+        return np.matmul(x, weights.transpose()) + biases, x
 
     def backward(self, output_grad, cache):
-        w = self._parameters["weights"]
-        input_grad = np.matmul(output_grad, w)
-        w_grad = np.matmul(output_grad.transpose(), cache)
-        b_grad = np.sum(output_grad, axis=0)
-        return input_grad, w_grad, b_grad
+        weights = self._parameters["weights"]
+        input_grad = np.matmul(output_grad, weights)
+        weights_grad = np.matmul(output_grad.transpose(), cache)
+        biases_grad = np.sum(output_grad, axis=0)
+        return input_grad, weights_grad, biases_grad
 
 
 class BatchNormalization(Layer):
+    def __init__(self, input_size, training_size, alpha):
+        Layer.__init__(self, input_size)
+        self._training_size = training_size
+        self._alpha = alpha
+        # the gamma vector is initialised with ones
+        self._parameters = {"gamma": np.ones(input_size),
+                            "beta": np.zeros(input_size)}
+        # Arbitrary values so that we do not start processing with 0 or 1,
+        # which are unlikely learning results
+        self._buffers = {"mean": 0.2,
+                         "variance": 0.8}
+
     def forward(self, x):
-        raise NotImplementedError()
+        alpha = self._alpha
+        beta = self._parameters["beta"]
+        gamma = self._parameters["gamma"]
+
+        # Update dataset mean and variance
+        self._buffers["mean"]       = (1 - alpha) * self._buffers["mean"]     + alpha * np.mean(x)
+        self._buffers["variance"]   = (1 - alpha) * self._buffers["variance"] + alpha * np.var(x)
+
+        normalized_x = (x - np.mean(x)) / np.sqrt(np.power(np.var(x), 2) + 1e-6)
+        return gamma * normalized_x + beta
+
 
     def backward(self, output_grad, cache):
         raise NotImplementedError()
