@@ -25,26 +25,25 @@ class FullyConnectedLayer(Layer):
     def __init__(self, input_size, layer_size):
         Layer.__init__(self)
         self._layer_size = layer_size
-        self._parameters = {"weights": np.zeros([layer_size, input_size]),
-                            "biases": np.zeros(layer_size)}
+        self._parameters = {"w": np.zeros([layer_size, input_size]),
+                            "b": np.zeros(layer_size)}
 
     def forward(self, x):
-        weights = self._parameters["weights"]
-        biases = self._parameters["biases"]
+        weights = self._parameters["w"]
+        biases = self._parameters["b"]
         return np.matmul(x, weights.transpose()) + biases, x
 
     def backward(self, output_grad, cache):
-        weights = self._parameters["weights"]
+        weights = self._parameters["w"]
         input_grad = np.matmul(output_grad, weights)
         weights_grad = np.matmul(output_grad.transpose(), cache)
         biases_grad = np.sum(output_grad, axis=0)
-        return input_grad, weights_grad, biases_grad
+        return input_grad, {"w": weights_grad, "b": biases_grad}
 
 
 class BatchNormalization(Layer):
-    def __init__(self, input_size, training_size, alpha):
-        Layer.__init__(self, input_size)
-        self._training_size = training_size
+    def __init__(self, input_size, alpha=0.1):
+        Layer.__init__(self)
         self._alpha = alpha
         # the gamma vector is initialised with ones
         self._parameters = {"gamma": np.ones(input_size),
@@ -59,12 +58,13 @@ class BatchNormalization(Layer):
         beta = self._parameters["beta"]
         gamma = self._parameters["gamma"]
 
+        normalized_x = (x - np.mean(x)) / np.sqrt(np.power(np.var(x), 2) + 1e-6)
+
         # Update dataset mean and variance
         self._buffers["mean"]       = (1 - alpha) * self._buffers["mean"]     + alpha * np.mean(x)
         self._buffers["variance"]   = (1 - alpha) * self._buffers["variance"] + alpha * np.var(x)
 
-        normalized_x = (x - np.mean(x)) / np.sqrt(np.power(np.var(x), 2) + 1e-6)
-        return gamma * normalized_x + beta
+        return gamma * normalized_x + beta, {"beta": beta, "gamma": gamma}
 
 
     def backward(self, output_grad, cache):
@@ -76,12 +76,13 @@ class ReLU(Layer):
         return x * (x >= 0), x
 
     def backward(self, output_grad, cache):
-        raise 1.0 * (cache >= 0)
+        return output_grad * (cache >= 0), None
 
 
 class Sigmoid(Layer):
     def forward(self, x):
-        return np.power(1 + np.exp(-1 * x), -1), x
+        return 1 / (1 + np.exp(-1 * x)), x
 
     def backward(self, output_grad, cache):
-        return self.forward(cache) * (1 - self.forward(cache)) * output_grad
+        y = self.forward(cache)[0]
+        return y * (1 - y) * output_grad, None

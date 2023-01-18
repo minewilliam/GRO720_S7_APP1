@@ -16,7 +16,7 @@ class CrossEntropyLoss(LossBase):
         return loss, input_grad
 
 
-class MeanSquareErrorLoss(LossBase):
+class MeanSquaredErrorLoss(LossBase):
     """
     :param x: The input tensor (e.g. model's output)
     :param target: The target tensor (e.g. true labels)
@@ -27,3 +27,6 @@ class MeanSquareErrorLoss(LossBase):
         loss = np.power((x - target), 2)
         input_grad = 2 * (x - target)
         return loss, input_grad
+
+def softmax():
+    pass
