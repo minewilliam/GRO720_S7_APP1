@@ -42,7 +42,7 @@ class FullyConnectedLayer(Layer):
 
 
 class BatchNormalization(Layer):
-    def __init__(self, input_size, alpha=0.1):
+    def __init__(self, input_size, alpha=1.0):
         Layer.__init__(self)
         self._alpha = alpha
         # the gamma vector is initialised with ones
@@ -50,20 +50,35 @@ class BatchNormalization(Layer):
                             "beta": np.zeros(input_size)}
         # Arbitrary values so that we do not start processing with 0 or 1,
         # which are unlikely learning results
-        self._buffers = {"mean": 0.2,
-                         "variance": 0.8}
+        self._buffers = {"global_mean": np.full(input_size, 0.0),
+                         "global_variance": np.full(input_size, 0.0)}
 
     def forward(self, x):
+        if self._is_training:
+            return self._forward_train(x)
+        return self._forward_eval(x)
+
+    def _forward_train(self, x):
         alpha = self._alpha
         beta = self._parameters["beta"]
         gamma = self._parameters["gamma"]
+        mean = np.mean(x, axis=0)
+        variance = np.var(x, axis=0)
 
-        normalized_x = (x - np.mean(x)) / np.sqrt(np.power(np.var(x), 2) + 1e-6)
+        # Update rolling mean and variance
+        self._buffers["global_mean"]       = (1 - alpha) * self._buffers["global_mean"]     + alpha * mean
+        self._buffers["global_variance"]   = (1 - alpha) * self._buffers["global_variance"] + alpha * variance
 
-        # Update dataset mean and variance
-        self._buffers["mean"]       = (1 - alpha) * self._buffers["mean"]     + alpha * np.mean(x)
-        self._buffers["variance"]   = (1 - alpha) * self._buffers["variance"] + alpha * np.var(x)
+        normalized_x = (x - mean) / np.sqrt(variance + 1e-6)
+        return gamma * normalized_x + beta, {"beta": beta, "gamma": gamma}
 
+    def _forward_eval(self, x):
+        beta = self._parameters["beta"]
+        gamma = self._parameters["gamma"]
+        mean = self._buffers["global_mean"]
+        variance = self._buffers["global_variance"]
+
+        normalized_x = (x - mean) / np.sqrt(variance + 1e-6)
         return gamma * normalized_x + beta, {"beta": beta, "gamma": gamma}
 
 
