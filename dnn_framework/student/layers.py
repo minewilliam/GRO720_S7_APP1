@@ -42,7 +42,7 @@ class FullyConnectedLayer(Layer):
 
 
 class BatchNormalization(Layer):
-    def __init__(self, input_size, alpha=1.0):
+    def __init__(self, input_size, alpha=0.1):
         Layer.__init__(self)
         self._alpha = alpha
         # the gamma vector is initialised with ones
@@ -62,28 +62,51 @@ class BatchNormalization(Layer):
         alpha = self._alpha
         beta = self._parameters["beta"]
         gamma = self._parameters["gamma"]
-        mean = np.mean(x, axis=0)
-        variance = np.var(x, axis=0)
+        batch_mean = np.mean(x, axis=0)
+        batch_variance = np.var(x, axis=0)
+        epsilon = 1e-6 # Prevent division by zero
 
-        # Update rolling mean and variance
-        self._buffers["global_mean"]       = (1 - alpha) * self._buffers["global_mean"]     + alpha * mean
-        self._buffers["global_variance"]   = (1 - alpha) * self._buffers["global_variance"] + alpha * variance
+        # Update rolling mean and variance to estimate the trend of the dataset
+        self._buffers["global_mean"] = (1 - alpha) * self._buffers["global_mean"] + alpha * batch_mean
+        self._buffers["global_variance"] = (1 - alpha) * self._buffers["global_variance"] + alpha * batch_variance
 
-        normalized_x = (x - mean) / np.sqrt(variance + 1e-6)
-        return gamma * normalized_x + beta, {"beta": beta, "gamma": gamma}
+        normalized_x = self._normalize(x, batch_mean, batch_variance, epsilon)
+        return gamma * normalized_x + beta, {"beta": beta,
+                                             "gamma": gamma,
+                                             "x": x}
 
     def _forward_eval(self, x):
         beta = self._parameters["beta"]
         gamma = self._parameters["gamma"]
         mean = self._buffers["global_mean"]
         variance = self._buffers["global_variance"]
+        epsilon = 1e-6 # Prevent division by zero
 
-        normalized_x = (x - mean) / np.sqrt(variance + 1e-6)
-        return gamma * normalized_x + beta, {"beta": beta, "gamma": gamma}
-
+        normalized_x = self._normalize(x, mean, variance, epsilon)
+        return gamma * normalized_x + beta, {"beta": beta,
+                                             "gamma": gamma,
+                                             "x": x}
 
     def backward(self, output_grad, cache):
-        raise NotImplementedError()
+        gamma = cache["gamma"]
+        x = cache["x"]
+        M = x.shape[0]  # Number of samples in batch
+        batch_mean = np.mean(x, axis=0)
+        batch_variance = np.var(x, axis=0)
+        epsilon = 1e-6  # Prevent division by zero
+
+        # Gradients:
+        x_grad = (1.0 / M) * gamma * 1 / np.sqrt(batch_variance + epsilon) * (M * output_grad - np.sum(output_grad, axis=0) \
+                 - (x - batch_mean) * 1 / (batch_variance + epsilon) * np.sum(output_grad * (x - batch_mean), axis=0))
+
+        gamma_grad = np.sum(output_grad * self._normalize(x, batch_mean, batch_variance, epsilon), axis=0)
+        beta_grad = np.sum(output_grad, axis=0)
+
+        output_cache = {"gamma": gamma_grad, "beta": beta_grad}
+        return x_grad, output_cache
+
+    def _normalize(self, x, mean, variance, epsilon):
+        return (x - mean) / np.sqrt(variance + epsilon)
 
 
 class ReLU(Layer):
