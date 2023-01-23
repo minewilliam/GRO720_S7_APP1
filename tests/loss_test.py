@@ -13,7 +13,7 @@ class LossTestCase(unittest.TestCase):
         target = np.array([0, 2])
         loss_value, input_grad = loss.calculate(x, target)
 
-        self.assertAlmostEqual(loss_value, 3.236744934100905, delta=DELTA)
+        self.assertTrue(np.allclose(loss_value, 3.236744934100905, atol=DELTA))
         self.assertTrue(test_loss_input_grad(loss, x.shape, target))
 
     def test_mean_squared_error_loss(self):
@@ -22,7 +22,7 @@ class LossTestCase(unittest.TestCase):
         target = x + 2
         loss_value, input_grad = loss.calculate(x, target)
 
-        self.assertAlmostEqual(loss_value, 4, delta=DELTA)
+        self.assertTrue(np.allclose(loss_value, 4, atol=DELTA))
         self.assertTrue(test_loss_input_grad(loss, x.shape, target))
 
 

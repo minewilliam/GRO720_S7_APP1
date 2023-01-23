@@ -11,8 +11,21 @@ class CrossEntropyLoss(LossBase):
     """
 
     def calculate(self, x, target):
-        loss = (-1 * target) * np.log(x) - (1 - target) * np.log(1 - x)
-        input_grad = -1 * (target / x) + ((1 - target) / (1 - x))
+        exp_x = np.exp(x)
+        prob = exp_x / np.sum(exp_x, axis=1, keepdims=True)
+
+        # Get the true class probability
+        true_class_prob = prob[np.arange(x.shape[0]), target]
+
+        # Calculate the cross-entropy loss
+        loss = -np.mean(np.log(true_class_prob))
+
+        input_grad = prob.copy()
+        input_grad[np.arange(x.shape[0]), target] -= 1
+        input_grad = input_grad / x.shape[0]
+
+        print(loss)
+        print(input_grad)
         return loss, input_grad
 
 
