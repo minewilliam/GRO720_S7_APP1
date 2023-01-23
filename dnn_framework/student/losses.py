@@ -41,5 +41,8 @@ class MeanSquaredErrorLoss(LossBase):
         input_grad = 2 * (x - target)
         return loss, input_grad
 
-def softmax():
-    pass
+
+def softmax(x):
+    exponential = np.exp(x)
+    probabilities = exponential / np.sum(exponential)
+    return probabilities
