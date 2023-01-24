@@ -24,8 +24,6 @@ class CrossEntropyLoss(LossBase):
         input_grad[np.arange(x.shape[0]), target] -= 1
         input_grad = input_grad / x.shape[0]
 
-        print(loss)
-        print(input_grad)
         return loss, input_grad
 
 

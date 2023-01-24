@@ -25,7 +25,7 @@ class FullyConnectedLayer(Layer):
     def __init__(self, input_size, layer_size):
         Layer.__init__(self)
         self._layer_size = layer_size
-        self._parameters = {"w": np.zeros([layer_size, input_size]),
+        self._parameters = {"w": np.random.rand(layer_size, input_size),
                             "b": np.zeros(layer_size)}
 
     def forward(self, x):
@@ -114,7 +114,7 @@ class ReLU(Layer):
         return x * (x >= 0), x
 
     def backward(self, output_grad, cache):
-        return output_grad * (cache >= 0), None
+        return output_grad * (cache >= 0), {}
 
 
 class Sigmoid(Layer):
@@ -123,4 +123,4 @@ class Sigmoid(Layer):
 
     def backward(self, output_grad, cache):
         y = self.forward(cache)[0]
-        return y * (1 - y) * output_grad, None
+        return y * (1 - y) * output_grad, {}
